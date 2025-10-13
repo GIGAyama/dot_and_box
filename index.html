@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ドットアンドボックス</title>
+    <!-- 以前のアプリと共通の、丸みのあるフォントをGoogle Fontsから読み込みます -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- styles.htmlの内容をここに統合 -->
+    <style>
+    /* ================================================================ */
+    /* 1. 基本スタイルとカラーパレット */
+    /* ================================================================ */
+
+    /* 色の定義：ここでアプリ全体の色を管理します */
+    :root {
+        --font-family: 'M PLUS Rounded 1c', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+        --bg-color: #f0e7d8; /* 背景色：すこし温かみのあるベージュ */
+        --container-bg: #fffaf0; /* コンテナ背景色：フローラルホワイト */
+        --text-color: #5d4037; /* テキスト色：濃い茶色 */
+        --shadow-color: rgba(0, 0, 0, 0.1);
+        --border-color: #dcdcdc;
+        --dot-color: #444;
+
+        /* ドットアンドボックス専用の色 */
+        --player1-color: #E57373; /* プレイヤー1：赤 */
+        --player1-light: rgba(229, 115, 115, 0.3);
+        --player2-color: #64B5F6; /* プレイヤー2：青 */
+        --player2-light: rgba(100, 181, 246, 0.3);
+        --line-color: #e0e0e0; /* まだ引かれていない線の色 */
+        --line-hover: #cccccc;
+        --btn-reset-bg: #f44336;
+        --btn-undo-bg: #ff9800;
+    }
+
+    /* ページ全体の基本設定 */
+    body {
+        font-family: var(--font-family);
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+
+    /* ゲーム全体を囲むコンテナ */
+    #game-container {
+        background-color: var(--container-bg);
+        padding: 25px 40px;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px var(--shadow-color);
+        text-align: center;
+        width: 100%;
+        max-width: 550px;
+    }
+
+    .title {
+        font-size: 2.2em;
+        font-weight: 700;
+        margin: 0 0 25px;
+    }
+
+
+    /* ================================================================ */
+    /* 2. 設定画面とゲーム情報エリア */
+    /* ================================================================ */
+    #settings {
+        margin: 20px 0;
+        padding: 20px;
+        background-color: #f9f9f9;
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
+    }
+    #settings select, #settings button {
+        font-family: inherit;
+        padding: 10px;
+        font-size: 16px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        margin: 0 5px;
+    }
+    #start-button {
+        background-color: #4CAF50;
+        color: white;
+    }
+
+    /* プレイヤー情報とスコア表示 */
+    #info-panel {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        margin-bottom: 25px;
+        font-size: 1.2em;
+        background-color: #f9f9f9;
+        padding: 10px 15px;
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
+    }
+    .player-info {
+        padding: 10px 20px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+    .player-info.active {
+        font-weight: bold;
+        transform: scale(1.05);
+    }
+    #player1-info.active {
+        border-color: var(--player1-color);
+        background-color: #fff;
+    }
+    #player2-info.active {
+        border-color: var(--player2-color);
+        background-color: #fff;
+    }
+    .score {
+        font-weight: bold;
+        margin-left: 8px;
+    }
+
+
+    /* ================================================================ */
+    /* 3. 盤面（ドット、線、ボックス） */
+    /* ================================================================ */
+
+    #game-board {
+        display: grid;
+        margin: 20px auto; /* 上下に少し余白を追加 */
+        user-select: none; /* テキスト選択を防ぐ */
+        /* ドットと線がぴったり合うように、要素を中央揃えにします */
+        align-items: center;
+        justify-items: center;
+    }
+
+    .dot {
+        width: 20px;
+        height: 20px;
+        background-color: var(--dot-color);
+        border-radius: 50%; /* 円にする */
+        /* 線がドットの下に潜り込むように調整 */
+        z-index: 5; 
+        position: relative; /* z-indexを有効にするため */
+    }
+
+    .line {
+        background-color: var(--line-color);
+        cursor: pointer;
+        transition: background-color 0.2s;
+        /* 線がドットの中心に接続するように調整 */
+        border-radius: 5px; /* 線の角を丸くする */
+    }
+    .line:hover {
+        background-color: var(--line-hover);
+    }
+
+    /* 横線と縦線のサイズと位置を調整 */
+    .horizontal { 
+        width: 100%; /* セルの幅いっぱいに広がる */
+        height: 10px; /* 線の太さ */
+    }
+    .vertical { 
+        width: 10px; /* 線の太さ */
+        height: 100%; /* セルの高さに広がる */
+    }
+
+    /* プレイヤーが引いた線の色 */
+    .line.player1 { background-color: var(--player1-color); }
+    .line.player2 { background-color: var(--player2-color); }
+    /* 「一手戻す」で復元された線（誰が引いたか不明なため） */
+    .line.player-restored { background-color: var(--dot-color); }
+
+    .box-placeholder {
+        width: 100%;  /* セルの幅いっぱいに */
+        height: 100%; /* セルの高さに */
+        transition: background-color 0.5s;
+    }
+    .filled-player1 { background-color: var(--player1-light); }
+    .filled-player2 { background-color: var(--player2-light); }
+
+
+    /* ================================================================ */
+    /* 4. 操作ボタンとモーダルウィンドウ */
+    /* ================================================================ */
+    #controls {
+        margin-top: 25px;
+    }
+    .btn {
+        font-family: var(--font-family);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        font-size: 1em;
+        font-weight: 700;
+        border-radius: 8px;
+        cursor: pointer;
+        margin: 0 10px;
+        transition: all 0.2s;
+    }
+    .btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    .btn:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+    }
+
+    #start-button { background-color: #4CAF50; }
+    #reset-button { background-color: var(--btn-reset-bg); }
+    #undo-button { background-color: var(--btn-undo-bg); }
+
+    #close-modal-button { background-color: #4a90e2; }
+    #start-over-button { background-color: #4a90e2; }
+
+
+    /* モーダルウィンドウの共通スタイル */
+    .modal {
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        display: none; /* JavaScriptで表示を切り替える */
+        justify-content: center;
+        align-items: center;
+    }
+    #confetti-canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1001;
+    }
+    .modal-content {
+        position: relative;
+        z-index: 1002;
+        background-color: var(--container-bg);
+        padding: 30px 40px;
+        border-radius: 15px;
+        text-align: center;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        animation: slide-in 0.3s ease-out;
+    }
+    .modal-content h2 {
+        font-size: 1.8em;
+        margin: 0 0 25px;
+    }
+
+    @keyframes slide-in {
+        from { transform: translateY(-30px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* ================================================================ */
+    /* 5. 追加スタイル（ルビ、レスポンシブ対応） */
+    /* ================================================================ */
+
+    ruby {
+        font-size: inherit;
+    }
+    rt {
+        font-size: 0.6em;
+        font-weight: normal;
+        opacity: 0.9;
+    }
+
+    #game-area {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 450px;
+        justify-content: center;
+    }
+
+    #game-board {
+        margin: 10px auto;
+    }
+    </style>
+</head>
+<body>
+    <!-- 画面全体の入れ物 -->
+    <div id="game-container">
+        <h1 class="title">ドットアンドボックス</h1>
+
+        <!-- ゲーム開始前の設定画面 -->
+        <div id="settings">
+            <label for="board-size"><ruby>盤面<rt>ばんめん</rt></ruby>のサイズ (ドットの<ruby>数<rt>かず</rt></ruby>):</label>
+            <select id="board-size">
+                <option value="3">3x3</option>
+                <option value="4" selected>4x4</option>
+                <option value="5">5x5</option>
+                <option value="6">6x6</option>
+            </select>
+            <button id="start-button" class="btn">ゲーム<ruby>開始<rt>かいし</rt></ruby></button>
+        </div>
+
+        <!-- ゲーム画面本体（最初は非表示） -->
+        <div id="game-area" style="display:none;">
+            <!-- プレイヤー情報とスコア表示 -->
+            <div id="info-panel">
+                <div id="player1-info" class="player-info">
+                    プレイヤー1: <span id="player1-score" class="score">0</span>
+                </div>
+                <div id="player2-info" class="player-info">
+                    プレイヤー2: <span id="player2-score" class="score">0</span>
+                </div>
+            </div>
+
+            <!-- ゲーム盤（ドットや線）が表示される場所 -->
+            <div id="game-board"></div>
+            
+            <!-- 操作ボタン -->
+            <div id="controls">
+                <button id="reset-button" class="btn">リセット</button>
+                <button id="undo-button" class="btn"><ruby>一手<rt>いって</rt></ruby><ruby>戻<rt>もど</rt></ruby>す</button>
+                <button id="start-over-button" class="btn">もう<ruby>一度<rt>いちど</rt></ruby><ruby>遊<rt>あそ</rt></ruby>ぶ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 勝利者表示モーダル（最初は非表示） -->
+    <div id="winner-modal" class="modal">
+        <canvas id="confetti-canvas"></canvas>
+        <div class="modal-content">
+            <h2 id="winner-message"></h2>
+            <button id="close-modal-button" class="btn"><ruby>閉<rt>と</rt></ruby>じる</button>
+        </div>
+    </div>
+
+
+    <!-- ================================================================ -->
+    <!-- JavaScript: ゲームの動きを作るプログラム -->
+    <!-- ================================================================ -->
+    <script>
+    // ================================================================
+    // 1. グローバル変数と定数
+    // ================================================================
+    
+    let gameState = {};
+    let moveHistory = [];
+    let confetti = { animationId: null, particles: [], ctx: null };
+
+    // ================================================================
+    // 2. HTML要素の取得
+    // ================================================================
+    const settingsDiv = document.getElementById('settings');
+    const gameAreaDiv = document.getElementById('game-area');
+    const boardSizeSelect = document.getElementById('board-size');
+    const startButton = document.getElementById('start-button');
+    const boardElement = document.getElementById('game-board');
+    const p1ScoreSpan = document.getElementById('player1-score');
+    const p2ScoreSpan = document.getElementById('player2-score');
+    const p1InfoDiv = document.getElementById('player1-info');
+    const p2InfoDiv = document.getElementById('player2-info');
+    const undoButton = document.getElementById('undo-button');
+    const resetButton = document.getElementById('reset-button');
+    const winnerModal = document.getElementById('winner-modal');
+    const winnerMessage = document.getElementById('winner-message');
+    const closeModalButton = document.getElementById('close-modal-button');
+    const startOverButton = document.getElementById('start-over-button');
+    const confettiCanvas = document.getElementById('confetti-canvas');
+
+
+    // ================================================================
+    // 3. ゲームの初期化とリセット
+    // ================================================================
+
+    function startGame() {
+        settingsDiv.style.display = 'none';
+        gameAreaDiv.style.display = 'block';
+        
+        const selectedSize = parseInt(boardSizeSelect.value);
+        initializeGame(selectedSize);
+    }
+
+    function initializeGame(size) {
+        gameState = {
+            boardSize: size,
+            currentPlayer: 1,
+            scores: { 1: 0, 2: 0 },
+            lines: {
+                horizontal: Array(size).fill(null).map(() => Array(size - 1).fill(false)),
+                vertical: Array(size - 1).fill(null).map(() => Array(size).fill(false))
+            },
+            boxes: Array(size - 1).fill(null).map(() => Array(size - 1).fill(0))
+        };
+        
+        moveHistory = [];
+        
+        updateScores();
+        updateTurnIndicator();
+        undoButton.disabled = true;
+        winnerModal.style.display = 'none';
+        stopConfetti();
+
+        createBoard();
+    }
+
+
+    // ================================================================
+    // 4. 画面の描画・更新
+    // ================================================================
+
+    function createBoard() {
+        boardElement.innerHTML = '';
+        const size = gameState.boardSize;
+        
+        const BOARD_MAX_DIMENSION = Math.min(gameAreaDiv.clientWidth - 40, 450);
+        const LINE_TO_DOT_RATIO = 3;
+        const totalUnits = (size - 1) * LINE_TO_DOT_RATIO + size * 1;
+        const unitPx = BOARD_MAX_DIMENSION / totalUnits;
+        const lineLength = `${unitPx * LINE_TO_DOT_RATIO}px`;
+        const dotAreaSize = `${unitPx * 1}px`;
+
+        const gridTemplate = Array.from({ length: size * 2 - 1 }, (_, i) => 
+            i % 2 === 0 ? dotAreaSize : lineLength
+        ).join(' ');
+
+        boardElement.style.gridTemplateColumns = gridTemplate;
+        boardElement.style.gridTemplateRows = gridTemplate;
+
+        for (let row = 0; row < size * 2 - 1; row++) {
+            for (let col = 0; col < size * 2 - 1; col++) {
+                const cell = document.createElement('div');
+                
+                if (row % 2 === 0 && col % 2 === 0) {
+                    cell.className = 'dot';
+                } 
+                else if (row % 2 === 0 && col % 2 !== 0) {
+                    cell.className = 'line horizontal';
+                    cell.dataset.row = row / 2;
+                    cell.dataset.col = (col - 1) / 2;
+                    cell.onclick = () => onLineClick(cell, 'horizontal');
+                } 
+                else if (row % 2 !== 0 && col % 2 === 0) {
+                    cell.className = 'line vertical';
+                    cell.dataset.row = (row - 1) / 2;
+                    cell.dataset.col = col / 2;
+                    cell.onclick = () => onLineClick(cell, 'vertical');
+                } 
+                else {
+                    cell.className = 'box-placeholder';
+                    cell.dataset.row = (row - 1) / 2;
+                    cell.dataset.col = (col - 1) / 2;
+                }
+                boardElement.appendChild(cell);
+            }
+        }
+    }
+
+    function updateScores() {
+        p1ScoreSpan.textContent = gameState.scores[1];
+        p2ScoreSpan.textContent = gameState.scores[2];
+    }
+
+    function updateTurnIndicator() {
+        if (gameState.currentPlayer === 1) {
+            p1InfoDiv.classList.add('active');
+            p2InfoDiv.classList.remove('active');
+        } else {
+            p1InfoDiv.classList.remove('active');
+            p2InfoDiv.classList.add('active');
+        }
+    }
+
+    function fillBox(r, c) {
+        const boxElement = document.querySelector(`.box-placeholder[data-row='${r}'][data-col='${c}']`);
+        if (boxElement) {
+            boxElement.classList.add(`filled-player${gameState.currentPlayer}`);
+        }
+    }
+
+
+    // ================================================================
+    // 5. ユーザー操作のハンドリング
+    // ================================================================
+
+    function onLineClick(lineElement, type) {
+        const row = parseInt(lineElement.dataset.row);
+        const col = parseInt(lineElement.dataset.col);
+
+        if ((type === 'horizontal' && gameState.lines.horizontal[row][col]) || 
+            (type === 'vertical' && gameState.lines.vertical[row][col])) {
+            return;
+        }
+        
+        saveCurrentStateToHistory();
+
+        drawLine(type, row, col, gameState.currentPlayer);
+
+        const completedBoxesCount = checkForCompletedBoxes(type, row, col);
+
+        if (completedBoxesCount === 0) {
+            switchPlayer();
+        }
+
+        checkGameOver();
+    }
+    
+    function undoMove() {
+        if (moveHistory.length === 0) return;
+
+        const lastFullState = moveHistory.pop();
+        gameState = lastFullState.gameState;
+        
+        updateScores();
+        updateTurnIndicator();
+        
+        redrawBoardFromState();
+        
+        if (moveHistory.length === 0) {
+           undoButton.disabled = true;
+        }
+    }
+
+
+    // ================================================================
+    // 6. ゲーム進行のコアロジック
+    // ================================================================
+    
+    function saveCurrentStateToHistory() {
+        const deepCopiedGameState = JSON.parse(JSON.stringify(gameState));
+        moveHistory.push({ gameState: deepCopiedGameState });
+        undoButton.disabled = false;
+    }
+    
+    function drawLine(type, row, col, player) {
+        if (type === 'horizontal') {
+            gameState.lines.horizontal[row][col] = true;
+        } else {
+            gameState.lines.vertical[row][col] = true;
+        }
+        const lineElement = document.querySelector(`.line.${type}[data-row='${row}'][data-col='${col}']`);
+        if(lineElement) lineElement.classList.add(`player${player}`);
+    }
+
+    function switchPlayer() {
+        gameState.currentPlayer = gameState.currentPlayer === 1 ? 2 : 1;
+        updateTurnIndicator();
+    }
+    
+    function redrawBoardFromState() {
+        createBoard();
+
+        const size = gameState.boardSize;
+        for(let r = 0; r < size; r++) {
+            for(let c = 0; c < size - 1; c++) {
+                if(gameState.lines.horizontal[r][c]) {
+                    const lineElem = document.querySelector(`.line.horizontal[data-row='${r}'][data-col='${c}']`);
+                    if(lineElem) lineElem.classList.add('player-restored');
+                }
+            }
+        }
+        for(let r = 0; r < size - 1; r++) {
+            for(let c = 0; c < size; c++) {
+                if(gameState.lines.vertical[r][c]) {
+                    const lineElem = document.querySelector(`.line.vertical[data-row='${r}'][data-col='${c}']`);
+                    if(lineElem) lineElem.classList.add('player-restored');
+                }
+            }
+        }
+        
+        for(let r = 0; r < size - 1; r++) {
+            for(let c = 0; c < size - 1; c++) {
+                const owner = gameState.boxes[r][c];
+                if (owner > 0) {
+                    const boxElement = document.querySelector(`.box-placeholder[data-row='${r}'][data-col='${c}']`);
+                    if(boxElement) boxElement.classList.add(`filled-player${owner}`);
+                }
+            }
+        }
+    }
+
+
+    // ================================================================
+    // 7. ルール判定（ボックス完成、ゲーム終了）
+    // ================================================================
+
+    function checkForCompletedBoxes(type, row, col) {
+        let completedCount = 0;
+        const size = gameState.boardSize;
+        
+        if (type === 'horizontal') {
+            if (row > 0 && isBoxComplete(row - 1, col)) {
+                if (gameState.boxes[row - 1][col] === 0) {
+                    completeBox(row - 1, col);
+                    completedCount++;
+                }
+            }
+            if (row < size - 1 && isBoxComplete(row, col)) {
+                if (gameState.boxes[row][col] === 0) {
+                    completeBox(row, col);
+                    completedCount++;
+                }
+            }
+        } else { // vertical
+            if (col > 0 && isBoxComplete(row, col - 1)) {
+                if (gameState.boxes[row][col - 1] === 0) {
+                    completeBox(row, col - 1);
+                    completedCount++;
+                }
+            }
+            if (col < size - 1 && isBoxComplete(row, col)) {
+                if (gameState.boxes[row][col] === 0) {
+                    completeBox(row, col);
+                    completedCount++;
+                }
+            }
+        }
+        return completedCount;
+    }
+
+    function completeBox(r, c) {
+        gameState.boxes[r][c] = gameState.currentPlayer;
+        gameState.scores[gameState.currentPlayer]++;
+        updateScores();
+        fillBox(r, c);
+    }
+    
+    function isBoxComplete(r, c) {
+        return gameState.lines.horizontal[r][c] &&
+               gameState.lines.horizontal[r + 1][c] &&
+               gameState.lines.vertical[r][c] &&
+               gameState.lines.vertical[r][c + 1];
+    }
+    
+    function checkGameOver() {
+        const size = gameState.boardSize;
+        const totalBoxes = (size - 1) * (size - 1);
+        const currentTotalScore = gameState.scores[1] + gameState.scores[2];
+
+        if (currentTotalScore === totalBoxes) {
+            endGame();
+        }
+    }
+    
+    function endGame() {
+        let messageHTML = '';
+        if (gameState.scores[1] > gameState.scores[2]) {
+            messageHTML = `🎉 プレイヤー1の<ruby>勝<rt>か</rt></ruby>ち！ 🎉`;
+        } else if (gameState.scores[2] > gameState.scores[1]) {
+            messageHTML = `🎉 プレイヤー2の<ruby>勝<rt>か</rt></ruby>ち！ 🎉`;
+        } else {
+            messageHTML = `<ruby>引<rt>ひ</rt></ruby>き<ruby>分<rt>わ</rt></ruby>けです！`;
+        }
+        winnerMessage.innerHTML = messageHTML;
+        winnerModal.style.display = 'flex';
+        startConfetti();
+        
+        document.querySelectorAll('.line').forEach(line => line.onclick = null);
+        undoButton.disabled = true;
+    }
+
+
+    // ================================================================
+    // 9. 勝利演出（紙吹雪アニメーション）
+    // ================================================================
+    function startConfetti() {
+        confetti.ctx = confettiCanvas.getContext('2d');
+        confettiCanvas.width = window.innerWidth;
+        confettiCanvas.height = window.innerHeight;
+        confetti.particles = Array.from({ length: 150 }, createParticle);
+        animateConfetti();
+    }
+    function stopConfetti() {
+        if(confetti.animationId) cancelAnimationFrame(confetti.animationId);
+        if (confetti.ctx) {
+            confetti.ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+        }
+    }
+    function createParticle() {
+        const colors = ["#E57373", "#64B5F6", "#FFD54F", "#81C784", "#FF80AB", "#9575CD"];
+        return {
+            x: Math.random() * confettiCanvas.width,
+            y: Math.random() * confettiCanvas.height - confettiCanvas.height,
+            size: Math.random() * 10 + 5,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            speed: Math.random() * 3 + 2,
+            angle: Math.random() * Math.PI * 2,
+            spin: (Math.random() - 0.5) * 0.2
+        };
+    }
+    function animateConfetti() {
+        confetti.ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        confetti.particles.forEach((p, i) => {
+            p.y += p.speed;
+            p.x += Math.sin(p.angle);
+            p.angle += p.spin;
+            confetti.ctx.fillStyle = p.color;
+            confetti.ctx.save();
+            confetti.ctx.translate(p.x, p.y);
+            confetti.ctx.rotate(p.angle);
+            confetti.ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+            confetti.ctx.restore();
+            if (p.y > confettiCanvas.height) {
+                confetti.particles[i] = createParticle();
+                confetti.particles[i].y = -10;
+            }
+        });
+        confetti.animationId = requestAnimationFrame(animateConfetti);
+    }
+
+
+    // ================================================================
+    // 10. イベントリスナーの登録とゲーム開始
+    // ================================================================
+    startButton.addEventListener('click', startGame);
+    resetButton.addEventListener('click', () => initializeGame(gameState.boardSize));
+    undoButton.addEventListener('click', undoMove);
+    
+    startOverButton.addEventListener('click', () => {
+        gameAreaDiv.style.display = 'none';
+        settingsDiv.style.display = 'block';
+    });
+
+    closeModalButton.addEventListener('click', () => {
+        winnerModal.style.display = 'none';
+        stopConfetti();
+    });
+    
+    </script>
+</body>
+</html>
+
